@@ -43,12 +43,14 @@ const DashboardContent: React.FC<DashboardContentProps> = ({
     
     setIsLoading(true);
     try {
-      const response = await apiService.getDeviceChartDataEnhanced(Number(deviceId), timeRange, token);
+      // Use the correct property name based on the Device interface
+      const deviceIdNumber = typeof deviceId === 'string' ? parseInt(deviceId) : deviceId;
+      const response = await apiService.getDeviceChartDataEnhanced(deviceIdNumber, timeRange, token);
       if (response.success && response.data) {
         // Transform the enhanced API response to match the existing interface
         const transformedData: DeviceChartData = {
           device: {
-            id: response.data.device.deviceId.toString(),
+            id: response.data.device.deviceId?.toString() || deviceId.toString(),
             serial_number: response.data.device.deviceSerial,
             type: response.data.device.deviceName,
             logo: response.data.device.deviceLogo,
@@ -106,7 +108,12 @@ const DashboardContent: React.FC<DashboardContentProps> = ({
       {children || (
         <>
           {/* Metrics Cards */}
-          <MetricsCards />
+          <MetricsCards 
+            selectedHierarchy={selectedHierarchy}
+            selectedDevice={selectedDevice}
+            chartData={chartData}
+            hierarchyChartData={hierarchyChartData}
+          />
 
           {/* Main Content Grid */}
           <div className="flex gap-4 mb-4">
@@ -132,7 +139,10 @@ const DashboardContent: React.FC<DashboardContentProps> = ({
                     : 'bg-white border border-gray-200'
                 }`}
               >
-                <GVFWLRCharts />
+                <GVFWLRCharts 
+                  chartData={chartData}
+                  hierarchyChartData={hierarchyChartData}
+                />
               </div>
             </div>
           </div>

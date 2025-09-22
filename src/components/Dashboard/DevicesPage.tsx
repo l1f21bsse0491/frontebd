@@ -2,9 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Search, Grid, List, Wifi, WifiOff } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
-import { apiService, EnhancedDevice, DevicesResponse } from '../../services/api';
+import { apiService, EnhancedDevice, DevicesResponse, HierarchyNode, Device } from '../../services/api';
 
-const DevicesPage: React.FC = () => {
+interface DevicesPageProps {
+  selectedHierarchy?: HierarchyNode | null;
+  selectedDevice?: Device | null;
+}
+
+const DevicesPage: React.FC<DevicesPageProps> = ({ selectedHierarchy, selectedDevice }) => {
   const { token } = useAuth();
   const { theme } = useTheme();
   const [devicesData, setDevicesData] = useState<DevicesResponse | null>(null);
@@ -23,13 +28,25 @@ const DevicesPage: React.FC = () => {
       
       setIsLoading(true);
       try {
-        const response = await apiService.getAllDevicesEnhanced(token, {
-          search: searchTerm || undefined,
-          status: statusFilter !== 'all' ? statusFilter : undefined,
-          deviceType: deviceTypeFilter !== 'all' ? deviceTypeFilter : undefined,
-          page: currentPage,
-          limit: itemsPerPage,
-        });
+        let response;
+        
+        if (selectedHierarchy && selectedHierarchy.id !== selectedHierarchy.name) {
+          // Load devices for specific hierarchy
+          response = await apiService.getDevicesByHierarchy(parseInt(selectedHierarchy.id), token, {
+            search: searchTerm || undefined,
+            status: statusFilter !== 'all' ? statusFilter : undefined,
+            deviceType: deviceTypeFilter !== 'all' ? deviceTypeFilter : undefined,
+          });
+        } else {
+          // Load all devices for company
+          response = await apiService.getAllDevicesEnhanced(token, {
+            search: searchTerm || undefined,
+            status: statusFilter !== 'all' ? statusFilter : undefined,
+            deviceType: deviceTypeFilter !== 'all' ? deviceTypeFilter : undefined,
+            page: currentPage,
+            limit: itemsPerPage,
+          });
+        }
         
         if (response.success && response.data) {
           setDevicesData(response.data);
@@ -45,7 +62,7 @@ const DevicesPage: React.FC = () => {
     };
 
     loadDevices();
-  }, [token, searchTerm, statusFilter, deviceTypeFilter, currentPage]);
+  }, [token, searchTerm, statusFilter, deviceTypeFilter, currentPage, selectedHierarchy]);
 
   const handleSearch = (value: string) => {
     setSearchTerm(value);
@@ -95,9 +112,23 @@ const DevicesPage: React.FC = () => {
     }`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className={`text-2xl font-semibold ${
-          theme === 'dark' ? 'text-white' : 'text-gray-900'
-        }`}>Device List</h1>
+        <div>
+          <h1 className={`text-2xl font-semibold ${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>
+            {selectedHierarchy && selectedHierarchy.id !== selectedHierarchy.name 
+              ? `Devices in ${selectedHierarchy.name}` 
+              : 'All Devices'
+            }
+          </h1>
+          {selectedHierarchy && selectedHierarchy.id !== selectedHierarchy.name && (
+            <p className={`text-sm mt-1 ${
+              theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              {selectedHierarchy.level}: {selectedHierarchy.name}
+            </p>
+          )}
+        </div>
         
         <div className="flex items-center gap-4">
           {/* View Toggle */}

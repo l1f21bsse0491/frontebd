@@ -3,9 +3,14 @@ import { useState, useEffect } from 'react';
 import { FilterIcon, AlertTriangle, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
-import { apiService, DeviceAlarm, AlarmsResponse } from '../../services/api';
+import { apiService, DeviceAlarm, AlarmsResponse, HierarchyNode, Device } from '../../services/api';
 
-const AlarmsTable: React.FC = () => {
+interface AlarmsTableProps {
+  selectedHierarchy?: HierarchyNode | null;
+  selectedDevice?: Device | null;
+}
+
+const AlarmsTable: React.FC<AlarmsTableProps> = ({ selectedHierarchy, selectedDevice }) => {
   const { token } = useAuth();
   const { theme } = useTheme();
   const [alarmsData, setAlarmsData] = useState<AlarmsResponse | null>(null);
@@ -24,6 +29,25 @@ const AlarmsTable: React.FC = () => {
       
       setIsLoading(true);
       try {
+        const alarmFilters: any = {
+          severity: filters.severity !== 'all' ? filters.severity : undefined,
+          status_id: filters.status_id !== 'all' ? parseInt(filters.status_id) : undefined,
+          sort_by: filters.sort_by,
+          sort_order: filters.sort_order,
+          limit: 20,
+          page: 1,
+        };
+        
+        // Add hierarchy filter if selected
+        if (selectedHierarchy && selectedHierarchy.id !== selectedHierarchy.name) {
+          alarmFilters.hierarchy_id = parseInt(selectedHierarchy.id);
+        }
+        
+        // Add device filter if selected
+        if (selectedDevice) {
+          alarmFilters.device_serial = selectedDevice.serial_number;
+        }
+        
         const response = await apiService.getAlarms(token, {
           severity: filters.severity !== 'all' ? filters.severity : undefined,
           status_id: filters.status_id !== 'all' ? parseInt(filters.status_id) : undefined,
@@ -47,7 +71,7 @@ const AlarmsTable: React.FC = () => {
     };
 
     loadAlarms();
-  }, [token, filters]);
+  }, [token, filters, selectedHierarchy, selectedDevice]);
 
   const getSeverityColor = (severity: string) => {
     switch (severity.toLowerCase()) {
@@ -136,16 +160,33 @@ const AlarmsTable: React.FC = () => {
   const { alarms, statistics } = alarmsData;
 
   return (
-    <div className={`rounded-lg h-full ${
-      theme === 'dark' ? 'bg-[#2A2D47]' : 'bg-white border border-gray-200'
+    <div className={`p-6 min-h-full ${
+      theme === 'dark' ? 'bg-[#1E1F2E]' : 'bg-gray-50'
     }`}>
-      <div className="p-6">
+      <div className={`rounded-lg h-full ${
+        theme === 'dark' ? 'bg-[#2A2D47]' : 'bg-white border border-gray-200'
+      }`}>
+        <div className="p-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className={`text-lg font-semibold tracking-wide ${
-            theme === 'dark' ? 'text-white' : 'text-gray-900'
-          }`}>
-            Alarms ({statistics.total})
-          </h2>
+          <div>
+            <h2 className={`text-lg font-semibold tracking-wide ${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>
+              {selectedHierarchy && selectedHierarchy.id !== selectedHierarchy.name 
+                ? `Alarms in ${selectedHierarchy.name} (${statistics.total})` 
+                : selectedDevice
+                ? `Alarms for ${selectedDevice.serial_number} (${statistics.total})`
+                : `All Alarms (${statistics.total})`
+              }
+            </h2>
+            {(selectedHierarchy && selectedHierarchy.id !== selectedHierarchy.name) && (
+              <p className={`text-sm mt-1 ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                {selectedHierarchy.level}: {selectedHierarchy.name}
+              </p>
+            )}
+          </div>
           <div className="flex items-center gap-4">
             {/* Statistics */}
             <div className="flex items-center gap-4 text-sm">
@@ -308,6 +349,7 @@ const AlarmsTable: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>
